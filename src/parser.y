@@ -33,7 +33,6 @@
 #include "../include/SemanticAnalyzer.hpp"
 using namespace std;
 
-// extern int lineNum; (no longer needed with %locations)
 extern int yylex();
 extern FILE *yyin;
 
@@ -59,16 +58,16 @@ ast::Program* root = nullptr;
     ast::Type*     type;
     ast::Var*      var;
     ast::Decl*      decl;
-    ast::DeclList* decl_list;
-    ast::VarDecl*  var_decl;
+    ast::DeclList*  decl_list;
+    ast::VarDecl*   var_decl;
     ast::ConstDecl* const_decl;
-    ast::FuncDecl* func_decl;
+    ast::FuncDecl*  func_decl;
     ast::VarDeclList* var_decl_list;
-    ast::Block*    block;
-    ast::Print*    print;
-    ast::Println*  println;
-    ast::Read*     read;
-    ast::EmptyStmt* empty_stmt;
+    ast::Block*       block;
+    ast::Print*       print;
+    ast::Println*     println;
+    ast::Read*        read;
+    ast::EmptyStmt*   empty_stmt;
 }
 
 %token BAD_CHARACTER
@@ -167,7 +166,7 @@ ast::Program* root = nullptr;
 %left       ADDITION SUBTRACTION
 %left       MULTIPLICATION DIVISION MODULUS
 %left       DOUBLE_ADDITION DOUBLE_SUBTRACTION
-%right   UMINUS
+%right      UMINUS
 
 %%
 program
@@ -218,7 +217,6 @@ main:
     }
     ;
 
-// Rule of statement list
 statement_list
     : statement_list statement{
         $1->push_back(std::unique_ptr<ast::Stmt>($2));

@@ -57,8 +57,9 @@ void SemanticAnalyzer::visit(ast::VarDecl& d) {
             d.varType = ast::Type(ast::BasicType::ERROR);  // Set to ERROR for error handling
             return;
         }
-        if (!(d.init->ty == d.varType))
+        if (!(d.init->ty == d.varType) && !(d.varType.kind == ast::BasicType::Double && d.init->ty.kind == ast::BasicType::Float)) {
             error(d.line, "Type mismatch in initialization of '" + d.name + "'" + ", expected " + d.varType.toString() + " but got " + d.init->ty.toString());
+        }
     }
 
     SymEntry entry;
