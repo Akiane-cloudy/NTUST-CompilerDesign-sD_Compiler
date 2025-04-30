@@ -1,0 +1,8 @@
+.vscode
+/build
+y.tab.hpp
+y.tab.cpp
+yy.lex.cpp
+*.o
+parser
+token.txt
