@@ -53,3 +53,146 @@
     
 - How to Clean:
   - Use `make clean` to Clean the Generated Files
+
+
+
+## Implementation Details (NEW)
+
+### Types
+
+- **`char`**  
+  - Can get the token from the scanner as `CHAR_CONSTANT`, e.g., `'c'`.
+
+- **`double`**  
+  - Can get the token from the scanner as `REAL_CONSTANT`, e.g., `4.0e10`.
+
+- **`void`**  
+  - Declaring a variable of type `void` will raise an **error**.
+
+---
+
+### Binary Operation Expression Statement
+
+- Supported operators: `+`, `-`, `*`, `/`, `<`, `<=`, `>=`, `>`
+- If `lhs` and `rhs` are of **different types**, the parser will issue a **warning** and perform an implicit type conversion to a default result type (compilation will still succeed).
+
+Example:
+
+    Float + Double -> Double
+
+- For `==` and `!=`:
+  - If `lhs` and `rhs` are of **different types**, the parser will raise an **error** and stop compilation.
+
+    INT != FLOAT -> ❌ 
+
+- For `%`:
+  - Both `lhs` and `rhs` must be of type `int`; otherwise, the parser will raise an **error** and stop compilation.
+
+    INT % INT -> ✅
+    INT % FLOAT -> ❌
+
+- For `&&` and `||`:
+  - Both `lhs` and `rhs` must be of type `bool`; otherwise, the parser will raise an **error** and stop compilation.
+
+    BOOL && BOOL -> ✅
+    INT || FLOAT -> ❌
+
+---
+
+### Array
+
+- Two arrays are considered **the same type** only if they have the same base type, number of dimensions, and size in each dimension.
+
+Example:
+
+    int func(int arr[2][3][4]) { /* ... */ }
+
+    void main() {
+      int arr[1][2][3];
+      func(arr); // ERROR: Array types do not match.
+    }
+
+- Array access expressions **will not** perform boundary checks at compile time, since the exact index values are not known during compilation.
+
+    int arr[10];
+    arr[10]; // Parsing succeeds without error.
+
+---
+
+### Function
+
+- Functions can return any type, including `void`.
+- A `void` function **cannot** have a `return` statement with a value.
+- The return type of a function must match the declared type.
+
+Examples:
+
+    int func() {
+      return 1; // ✅
+    }
+
+    void func2() {
+      return 1; // ❌ ERROR: void function cannot return a value.
+    }
+
+    double func3() {
+      return 1; // ❌ ERROR: return type mismatch.
+    }
+
+- Every function must have at least **one `return` statement on all possible paths**. Otherwise, the parser will raise an error.
+
+    int func(bool a) {
+      if (a) return 1;
+      // Missing return here
+    }
+    // ❌ ERROR: missing return statement on some code paths.
+
+- The `main` function **must** be declared as `void main()`.
+  - If `main` is missing, the parser will raise an error.
+
+---
+
+### Statement
+
+- **Empty statement**:
+
+    void main() {
+      ; // ✅ Parsing succeeds.
+    }
+
+- **Block statement**:
+
+    void main() {
+      int a;
+      {
+        int a; // ✅ Parsing succeeds.
+      }
+    }
+
+- In a `for` loop, the initializer block is treated as part of the loop body’s block (same scope).
+
+Example:
+
+    for (int i = 0; i < 10; i++) {
+      int i; // ❌ ERROR: redefinition of 'i'
+    }
+
+- After processing a block (if the statement is a block), the parser will **dump the symbol table of the current scope**.
+
+Example:
+
+    void main() {
+      int a;
+      {
+        int a;
+      }
+    }
+    /*
+    ============ Dump Start ============
+    1. "a", int
+    ============ Dump End ==============
+
+    ============ Dump Start ============
+    1. "a", int
+    ============ Dump End ==============
+    */
