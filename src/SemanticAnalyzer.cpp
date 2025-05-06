@@ -773,6 +773,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     }
     
     // Process function body (cast to Block to access statements)
+    ++skipBlockScopeOnce;
     if (fd.body) {
         fd.body->accept(*this);
     }

@@ -6,3 +6,5 @@ yy.lex.cpp
 *.o
 parser
 token.txt
+*.d
+/example
