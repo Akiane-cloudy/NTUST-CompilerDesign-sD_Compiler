@@ -143,7 +143,7 @@ Examples:
       if (a) return 1;
       // Missing return here
     }
-    // ❌ ERROR: missing return statement on some code paths.
+    // ⚠️ Warning: missing return statement on some code paths.
 ```
 - The `main` function **must** be declared as `void main()`.
   - If `main` is missing, the parser will raise an error.
