@@ -44,6 +44,7 @@ class SymbolTable {
     SymEntry* lookup(const std::string&);
     bool insert(const SymEntry&);
     void dump() const;
+    bool hasErrors{false};
 };
 
 #endif

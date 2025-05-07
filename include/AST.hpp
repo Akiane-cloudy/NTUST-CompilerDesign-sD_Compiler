@@ -135,6 +135,7 @@ struct Type {
                 break;
             case BasicType::Void:
                 s = "void";
+                break;
             case BasicType::ERROR:
                 s = "error";
                 break;

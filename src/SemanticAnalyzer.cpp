@@ -46,6 +46,7 @@ void SemanticAnalyzer::visit(ast::Program& p) {
         declPtr->accept(*this);
     for (auto& stmtPtr : p.stmts)
         stmtPtr->accept(*this);
+    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 }
 
@@ -271,6 +272,8 @@ void SemanticAnalyzer::visit(ast::ForStmt& s) {
     // Check body
     ++skipBlockScopeOnce;
     s.body->accept(*this);
+
+    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 }
 
@@ -414,9 +417,9 @@ void SemanticAnalyzer::visit(ast::Unary& u) {
 void SemanticAnalyzer::visit(ast::Binary& b) {
     b.lhs->accept(*this);
     b.rhs->accept(*this);
-    auto charIntFloatDouble = [](const std::unique_ptr<ast::Expr>& e1, const std::unique_ptr<ast::Expr>& e2)->bool{
-        return (e1->ty.kind == ast::BasicType::Char || e1->ty.kind == ast::BasicType::Int || e1->ty.kind == ast::BasicType::Float || e1->ty.kind == ast::BasicType::Double) &&
-               (e2->ty.kind == ast::BasicType::Char || e2->ty.kind == ast::BasicType::Int || e2->ty.kind == ast::BasicType::Float || e2->ty.kind == ast::BasicType::Double);
+    auto charIntFloatDoubleBool = [](const std::unique_ptr<ast::Expr>& e1, const std::unique_ptr<ast::Expr>& e2)->bool{
+        return (e1->ty.kind == ast::BasicType::Char || e1->ty.kind == ast::BasicType::Int || e1->ty.kind == ast::BasicType::Float || e1->ty.kind == ast::BasicType::Double || e1->ty.kind == ast::BasicType::Bool) &&
+               (e2->ty.kind == ast::BasicType::Char || e2->ty.kind == ast::BasicType::Int || e2->ty.kind == ast::BasicType::Float || e2->ty.kind == ast::BasicType::Double || e2->ty.kind == ast::BasicType::Bool);
     };
 
     auto isBool = [](const std::unique_ptr<ast::Expr>& e1, const std::unique_ptr<ast::Expr>& e2)->bool{
@@ -431,101 +434,57 @@ void SemanticAnalyzer::visit(ast::Binary& b) {
 
     switch (b.op) {
         case ast::Op::Plus: {
-            if (charIntFloatDouble(b.lhs, b.rhs)) {
-                if (b.rhs->ty == ast::BasicType::Double || b.lhs->ty == ast::BasicType::Double) {
-                    b.ty = ast::Type(ast::BasicType::Double);
-                } else if (b.rhs->ty == ast::BasicType::Float || b.lhs->ty == ast::BasicType::Float) {
-                    b.ty = ast::Type(ast::BasicType::Float);
-                } else if (b.rhs->ty == ast::BasicType::Int || b.lhs->ty == ast::BasicType::Int) {
-                    b.ty = ast::Type(ast::BasicType::Int);
-                } else if (b.rhs->ty == ast::BasicType::Char && b.lhs->ty == ast::BasicType::Char) {
-                    b.ty = ast::Type(ast::BasicType::Char);
-                } else{
-                    error(b.line, "Binary '+' requires char, int, float, or double!");
-                    b.ty = ast::Type(ast::BasicType::ERROR);
-                }
-
-                if (!(b.lhs->ty == b.rhs->ty)) { 
-                    warning(b.line, "Binary '+' requires same types! Here we set the type " + b.ty.toString() + " for the result."); 
-                }
+            if (b.rhs->ty == b.lhs->ty) {
+                b.ty = b.lhs->ty;
             } 
             else{
-                error(b.line, "Binary '+' requires char, int, float, or double!");
+                error(b.line, "Binary '+' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
             }
             break;
         }
         case ast::Op::Minus:{
-            if (charIntFloatDouble(b.lhs, b.rhs)) {
-                if (b.rhs->ty == ast::BasicType::Double || b.lhs->ty == ast::BasicType::Double) {
-                    b.ty = ast::Type(ast::BasicType::Double);
-                } else if (b.rhs->ty == ast::BasicType::Float || b.lhs->ty == ast::BasicType::Float) {
-                    b.ty = ast::Type(ast::BasicType::Float);
-                } else if (b.rhs->ty == ast::BasicType::Int || b.lhs->ty == ast::BasicType::Int) {
-                    b.ty = ast::Type(ast::BasicType::Int);
-                } else if (b.rhs->ty == ast::BasicType::Char && b.lhs->ty == ast::BasicType::Char) {
-                    b.ty = ast::Type(ast::BasicType::Char);
-                } else{
-                    error(b.line, "Binary '-' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                if (!charIntFloatDoubleBool(b.lhs, b.rhs)) {
+                    error(b.line, "Binary '-' requires char, int, float, double or bool!");
                     b.ty = ast::Type(ast::BasicType::ERROR);
+                    return;
                 }
-
-                if (!(b.lhs->ty == b.rhs->ty)) { 
-                    warning(b.line, "Binary '-' requires same types! Here we set the type " + b.ty.toString() + " for the result."); 
-                }
+                b.ty = b.lhs->ty;
             } 
-            else {
-                error(b.line, "Binary '-' requires char, int, float, or double!");
+            else{
+                error(b.line, "Binary '-' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
             }
             break;
         }
-        /* Accept different type multiplication in Mul operation, but only accept int, float and double.*/
         case ast::Op::Mul:{
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '*' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                if (!charIntFloatDoubleBool(b.lhs, b.rhs)) {
+                    error(b.line, "Binary '*' requires char, int, float, double or bool!");
+                    b.ty = ast::Type(ast::BasicType::ERROR);
+                    return;
+                }
+                b.ty = b.lhs->ty;
+            } 
+            else{
+                error(b.line, "Binary '*' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
-            }
-            if (b.rhs->ty == ast::BasicType::Double || b.lhs->ty == ast::BasicType::Double) {
-                b.ty = ast::Type(ast::BasicType::Double);
-            } else if (b.rhs->ty == ast::BasicType::Float || b.lhs->ty == ast::BasicType::Float) {
-                b.ty = ast::Type(ast::BasicType::Float);
-            } else if (b.rhs->ty == ast::BasicType::Int || b.lhs->ty == ast::BasicType::Int) {
-                b.ty = ast::Type(ast::BasicType::Int);
-            } else if (b.rhs->ty == ast::BasicType::Char && b.lhs->ty == ast::BasicType::Char) {
-                b.ty = ast::Type(ast::BasicType::Char);
-            } else{
-                error(b.line, "Binary '*' requires char, int, float, or double!");
-                b.ty = ast::Type(ast::BasicType::ERROR);
-            }
-
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '*' requires same types! Here we set the type " + b.ty.toString() + " for the result."); 
             }
             break;
         }
         case ast::Op::Div: {
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '/' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                if (!charIntFloatDoubleBool(b.lhs, b.rhs)) {
+                    error(b.line, "Binary '/' requires char, int, float, double or bool!");
+                    b.ty = ast::Type(ast::BasicType::ERROR);
+                    return;
+                }
+                b.ty = b.lhs->ty;
+            } 
+            else{
+                error(b.line, "Binary '/' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
-            }
-            if (b.rhs->ty == ast::BasicType::Double || b.lhs->ty == ast::BasicType::Double) {
-                b.ty = ast::Type(ast::BasicType::Double);
-            } else if (b.rhs->ty == ast::BasicType::Float || b.lhs->ty == ast::BasicType::Float) {
-                b.ty = ast::Type(ast::BasicType::Float);
-            } else if (b.rhs->ty == ast::BasicType::Int || b.lhs->ty == ast::BasicType::Int) {
-                b.ty = ast::Type(ast::BasicType::Int);
-            } else if (b.rhs->ty == ast::BasicType::Char && b.lhs->ty == ast::BasicType::Char) {
-                b.ty = ast::Type(ast::BasicType::Char);
-            } else{
-                error(b.line, "Binary '/' requires char, int, float, or double!");
-                b.ty = ast::Type(ast::BasicType::ERROR);
-            }
-
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '/' requires same types! Here we set the type " + b.ty.toString() + " for the result."); 
             }
             break;
         }
@@ -539,51 +498,43 @@ void SemanticAnalyzer::visit(ast::Binary& b) {
             break;
         }
         case ast::Op::Less:{
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '<' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                b.ty = ast::BasicType::Bool;
+            } 
+            else{
+                error(b.line, "Binary '<' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
             }
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '<' requires same types! Different types might got a different result."); 
-            }
-            b.ty = ast::Type(ast::BasicType::Bool);
             break;
         }
         case ast::Op::LessEq:{
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '<=' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                b.ty = ast::BasicType::Bool;
+            } 
+            else{
+                error(b.line, "Binary '<=' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
             }
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '<=' requires same types! Different types might got a different result."); 
-            }
-            b.ty = ast::Type(ast::BasicType::Bool);
             break;
         }
         case ast::Op::Greater:{
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '>' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                b.ty = ast::BasicType::Bool;
+            } 
+            else{
+                error(b.line, "Binary '>' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
             }
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '>' requires same types! Different types might got a different result."); 
-            }
-            b.ty = ast::Type(ast::BasicType::Bool);
             break;
         }
         case ast::Op::GreaterEq:{
-            if (!(charIntFloatDouble(b.lhs, b.rhs))) {
-                error(b.line, "Binary '>=' requires char, int, float, or double!");
+            if (b.rhs->ty == b.lhs->ty) {
+                b.ty = ast::BasicType::Bool;
+            } 
+            else{
+                error(b.line, "Binary '>=' requires same types!");
                 b.ty = ast::Type(ast::BasicType::ERROR);
-                return;
             }
-            if (!(b.lhs->ty == b.rhs->ty)) { 
-                warning(b.line, "Binary '>=' requires same types! Different types might got a different result."); 
-            }
-            b.ty = ast::Type(ast::BasicType::Bool);
             break;
         }
         case ast::Op::Equal:{
@@ -729,7 +680,7 @@ void SemanticAnalyzer::visit(ast::Block& b) {
         stmt->accept(*this);
     }
 
-    if (!errors.size()) symtab.dump();
+    symtab.hasErrors = errors.size() > 0;
     if (!merged) symtab.exitScope();
 }
 
@@ -747,6 +698,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     funcEntry.name = fd.name;
     funcEntry.isFunc = true;
     funcEntry.returnType = fd.returnType;
+    funcEntry.type = fd.returnType;  // record return type as entry type
     
     // Process parameter types
     std::vector<ast::Type> paramTypes;
@@ -791,6 +743,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     }
 
     // Exit function scope
+    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 
     // Restore outer context

@@ -167,10 +167,12 @@ ast::Program* root = nullptr;
 %left       MULTIPLICATION DIVISION MODULUS
 %left       DOUBLE_ADDITION DOUBLE_SUBTRACTION
 %right      UMINUS
+%nonassoc   LOWER_THAN_ELSE
+%right      ELSE
 
 %%
-program
-    : global_declaration main {
+program:
+      global_declaration main {
         $$ = new ast::Program(std::move($1->decls), std::move(*$2), @$.first_line);
         root = $$;
     }
@@ -185,8 +187,8 @@ program
     }
     ;
 
-global_declaration
-    : global_declaration declaration SEMICOLON {
+global_declaration:
+      global_declaration declaration SEMICOLON {
         $1->decls.push_back(std::unique_ptr<ast::Decl>($2));
         $$ = $1;
       }
@@ -217,8 +219,8 @@ main:
     }
     ;
 
-statement_list
-    : statement_list statement{
+statement_list:
+      statement_list statement{
         $1->push_back(std::unique_ptr<ast::Stmt>($2));
         $$ = $1;
       }
@@ -229,8 +231,8 @@ statement_list
       }
     ;
 
-block
-    : LEFT_CURLY_BRACKET statement_list RIGHT_CURLY_BRACKET{
+block:
+      LEFT_CURLY_BRACKET statement_list RIGHT_CURLY_BRACKET{
         // Create a new Block with moved statement list
         auto blk = new ast::Block({}, @$.first_line);
         blk->stmts = std::move(*$2);
@@ -250,7 +252,7 @@ statement:
     | PRINT expression SEMICOLON{ $$ = new ast::Print(std::unique_ptr<ast::Expr>($2), @$.first_line); }
     | PRINTLN expression SEMICOLON{ $$ = new ast::Println(std::unique_ptr<ast::Expr>($2), @$.first_line); }
     | READ lvalue SEMICOLON{ $$ = new ast::Read(std::unique_ptr<ast::Var>($2), @$.first_line); }
-    | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement { 
+    | IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS statement %prec LOWER_THAN_ELSE { 
         $$ = new ast::IfStmt(std::unique_ptr<ast::Expr>($3),
                              std::unique_ptr<ast::Stmt>($5),
                              nullptr,
@@ -332,8 +334,8 @@ lvalue
       }
     ;
 
-expression
-    : expression ADDITION expression        { $$ = new ast::Binary(ast::Op::Plus,     std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
+expression:
+      expression ADDITION expression        { $$ = new ast::Binary(ast::Op::Plus,     std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
     | expression SUBTRACTION expression     { $$ = new ast::Binary(ast::Op::Minus,    std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
     | expression MULTIPLICATION expression  { $$ = new ast::Binary(ast::Op::Mul,      std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
     | expression DIVISION expression        { $$ = new ast::Binary(ast::Op::Div,      std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
@@ -362,18 +364,18 @@ expression
     | FALSE_CONSTANT                        { $$ = new ast::BoolLit(false, @$.first_line); }
     | CHAR_CONSTANT                         { $$ = new ast::CharLit($1, @$.first_line); }
 
-call_argument_list
-    : expression                          { $$ = new ast::ExprList(); $$->push_back(std::unique_ptr<ast::Expr>($1)); }
+call_argument_list:
+      expression                          { $$ = new ast::ExprList(); $$->push_back(std::unique_ptr<ast::Expr>($1)); }
     | call_argument_list COMMA expression { $$ = $1; $1->push_back(std::unique_ptr<ast::Expr>($3)); }
     ;
 
-index_list
-    : LEFT_SQUARE_BRACKET expression RIGHT_SQUARE_BRACKET            { auto tmp = new ast::ExprList(); tmp->push_back(std::unique_ptr<ast::Expr>($2)); $$ = tmp; }
+index_list:
+      LEFT_SQUARE_BRACKET expression RIGHT_SQUARE_BRACKET            { auto tmp = new ast::ExprList(); tmp->push_back(std::unique_ptr<ast::Expr>($2)); $$ = tmp; }
     | index_list LEFT_SQUARE_BRACKET expression RIGHT_SQUARE_BRACKET { $1->push_back(std::unique_ptr<ast::Expr>($3)); $$ = $1; }
     ;
 
-declaration
-    : type init_declarator_list {
+declaration:
+      type init_declarator_list {
         for (auto& decl : $2->decls) { decl->varType = *$1; }
         $$ = $2;
         delete $1;
@@ -388,8 +390,8 @@ declaration
       }
     ;
 
-init_declarator_list
-    : init_declarator {
+init_declarator_list:
+      init_declarator {
         auto tmp = new ast::VarDeclList();
         tmp->decls.push_back(std::unique_ptr<ast::VarDecl>($1));
         $$ = tmp;
@@ -400,8 +402,8 @@ init_declarator_list
       }
     ;
 
-init_declarator
-    : IDENTIFIER {
+init_declarator:
+      IDENTIFIER {
         auto type = new ast::Type(ast::BasicType::Void);
         auto decl = new ast::VarDecl(*type, *$1, nullptr, false, @$.first_line);
         delete $1; delete type;

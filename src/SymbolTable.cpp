@@ -5,6 +5,7 @@ void SymbolTable::enterScope() {
 }
 
 void SymbolTable::exitScope() {
+    if (!hasErrors) dump();
     if (!scopes.empty()) {
         scopes.pop_back();
     } else {
