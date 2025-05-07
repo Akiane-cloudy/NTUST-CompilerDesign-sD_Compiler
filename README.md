@@ -31,7 +31,7 @@
   |     |--- SemanticAnalyzer.hpp
   |     |--- AST.hpp
   |     
-  |--- /testcase (some cases for testing)
+  |--- /example (some cases for testing)
   |    
   |--- /build
         |--- (Generated Object Files by Makefile)
@@ -49,7 +49,7 @@
   - Execute the command `./parser <SOURCE_FILE>`, where `<SOURCE_FILE>` is a `.sd` file.
   - The output will be displayed in the terminal, and scanned tokens will be saved to `token.txt`.
   - If the grammar is correct and no semantic conflicts are detected, the message `"Parsing completed successfully!"` be shown. Otherwise, error or warning messages will be displayed.
-  - After parsing `"{}"`, the symbol table of identifiers will be dumped.
+  - After parsing every scope, the symbol table of identifiers will be dumped.
     
 - How to Clean:
   - Use `make clean` to Clean the Generated Files
@@ -57,7 +57,10 @@
 
 
 ## Implementation Details (NEW)
-
+```
+In this section, I will introduce some implementation details of my project. Some aspects may not be explicitly defined in the assignment description, so I have implemented them based on my understanding of C++. Additionally, I have included some extra features that go beyond the original requirements.
+```
+---
 ### Types
 
 - **`char`**  
@@ -66,24 +69,18 @@
 - **`double`**  
   - Can get the token from the scanner as `REAL_CONSTANT`, e.g., `4.0e10`.
 
-- **`void`**  
-  - Declaring a variable of type `void` will raise an **error**.
-
 ---
 
 ### Binary Operation Expression Statement
 
-- Supported operators: `+`, `-`, `*`, `/`, `<`, `<=`, `>=`, `>`
-- If `lhs` and `rhs` are of **different types**, the parser will issue a **warning** and perform an implicit type conversion to a default result type (compilation will still succeed).
+- Supported operators: `+`, `-`, `*`, `/`, `%`, `<`, `<=`, `>=`, `>`, `==`, `!=`, `&&` and `||`
+- If `lhs` and `rhs` are of **different types**, the parser will issue a **error** and perform an error message.
 
-Example:
+- For `+`, `<`, `<=`, `>=`, `>`, `==` and  `!=`, accept type:
+  - `int`, `char`, `float`, `double`, `bool`, `string`
 
-    Float + Double -> Double
-
-- For `==` and `!=`:
-  - If `lhs` and `rhs` are of **different types**, the parser will raise an **error** and stop compilation.
-
-    INT != FLOAT -> ❌ 
+- For `-`, `*` and `/`,  accept type:
+  - `int`, `char`, `float`, `double`, `bool`
 
 - For `%`:
   - Both `lhs` and `rhs` must be of type `int`; otherwise, the parser will raise an **error** and stop compilation.
@@ -104,19 +101,20 @@ Example:
 - Two arrays are considered **the same type** only if they have the same base type, number of dimensions, and size in each dimension.
 
 Example:
-
+```c
     int func(int arr[2][3][4]) { /* ... */ }
 
     void main() {
       int arr[1][2][3];
       func(arr); // ERROR: Array types do not match.
     }
+```
 
 - Array access expressions **will not** perform boundary checks at compile time, since the exact index values are not known during compilation.
-
+```c
     int arr[10];
     arr[10]; // Parsing succeeds without error.
-
+```
 ---
 
 ### Function
@@ -126,7 +124,7 @@ Example:
 - The return type of a function must match the declared type.
 
 Examples:
-
+```c
     int func() {
       return 1; // ✅
     }
@@ -138,15 +136,15 @@ Examples:
     double func3() {
       return 1; // ❌ ERROR: return type mismatch.
     }
-
+```
 - Every function must have at least **one `return` statement on all possible paths**. Otherwise, the parser will raise an error.
-
+```c
     int func(bool a) {
       if (a) return 1;
       // Missing return here
     }
     // ❌ ERROR: missing return statement on some code paths.
-
+```
 - The `main` function **must** be declared as `void main()`.
   - If `main` is missing, the parser will raise an error.
 
@@ -155,32 +153,32 @@ Examples:
 ### Statement
 
 - **Empty statement**:
-
+```c
     void main() {
       ; // ✅ Parsing succeeds.
     }
-
+```
 - **Block statement**:
-
+```c
     void main() {
       int a;
       {
         int a; // ✅ Parsing succeeds.
       }
     }
-
+```
 - In a `for` loop, the initializer block is treated as part of the loop body’s block (same scope).
 
 Example:
-
+```c
     for (int i = 0; i < 10; i++) {
       int i; // ❌ ERROR: redefinition of 'i'
     }
-
-- After processing a block (if the statement is a block), the parser will **dump the symbol table of the current scope**.
+```
+- After processing a scope, the parser will **dump the symbol table of the current scope**.
 
 Example:
-
+```c
     void main() {
       int a;
       {
@@ -196,3 +194,17 @@ Example:
     1. "a", int
     ============ Dump End ==============
     */
+```
+---
+### Assigment
+- Chain assigment
+```c
+  int a;
+  int b = (a = 3); // ✅ Parsing succeeds.
+```
+
+- Const declaration with expression
+```c
+  int a, b;
+  const int c =  a + b; // ✅ Parsing succeeds.
+```
