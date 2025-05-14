@@ -1,5 +1,6 @@
 #include "SemanticAnalyzer.hpp"
 
+#include <iostream>
 #include <cstdlib>
 
 // full-path return analysis helpers
@@ -18,11 +19,6 @@ bool SemanticAnalyzer::allPathsReturn(const std::vector<std::unique_ptr<ast::Stm
         if (stmtReturns(st.get())) return true;
     }
     return false;
-}
-
-// Constructor: enter global scope
-SemanticAnalyzer::SemanticAnalyzer() {
-    symtab.enterScope();
 }
 
 // Entry point: analyze program and report errors
@@ -46,8 +42,6 @@ void SemanticAnalyzer::visit(ast::Program& p) {
         declPtr->accept(*this);
     for (auto& stmtPtr : p.stmts)
         stmtPtr->accept(*this);
-    symtab.hasErrors = errors.size() > 0;
-    symtab.exitScope();
 }
 
 // Visit variable declaration
@@ -273,7 +267,6 @@ void SemanticAnalyzer::visit(ast::ForStmt& s) {
     ++skipBlockScopeOnce;
     s.body->accept(*this);
 
-    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 }
 
@@ -680,7 +673,6 @@ void SemanticAnalyzer::visit(ast::Block& b) {
         stmt->accept(*this);
     }
 
-    symtab.hasErrors = errors.size() > 0;
     if (!merged) symtab.exitScope();
 }
 
@@ -717,7 +709,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     currentFunctionReturnType = fd.returnType;
 
     // Enter function scope
-    symtab.enterScope();
+    symtab.enterScope(true);
     
     // Process parameters (add them to the function's scope)
     for (auto& param : fd.params) {
@@ -742,8 +734,6 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
         }
     }
 
-    // Exit function scope
-    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 
     // Restore outer context

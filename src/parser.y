@@ -30,7 +30,10 @@
 %{
 #include <stdio.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include "../include/SemanticAnalyzer.hpp"
+#include "../include/CodeGenVisitor.hpp"
 using namespace std;
 
 extern int yylex();
@@ -41,6 +44,7 @@ void yywarning(std::string s);
 ast::Program* parse();
 
 ast::Program* root = nullptr;
+std::ofstream outStream;
 %}
 
 %union {
@@ -528,11 +532,32 @@ int main(int argc, char *argv[]) {
     }
     yyin = fopen(argv[1], "r");
 
-    auto parse_tree = parse();
-    
-    SemanticAnalyzer semanticAnalyzer;
-    semanticAnalyzer.analyze(*parse_tree);
+    // 打开输出文件
+    std::string outputFilename = std::string(argv[1]) + ".j";
+    outStream.open(outputFilename);
+    if (!outStream.is_open()) {
+        std::cerr << "Error opening output file: " << outputFilename << std::endl;
+        exit(1);
+    }
+
+    // Parse the input file and generate the AST
+    auto AbstractSyntaxTree = parse();
+
+    // Parse the AST and do the semantic analysis
+    SymbolTable symtab;
+    SemanticAnalyzer semanticAnalyzer(symtab);
+    semanticAnalyzer.analyze(*AbstractSyntaxTree);
+
+    /* 临时注释掉代码生成部分，因为 CodeGenVisitor 尚未完全实现
+    // Generate code
+    CodeEmitter emitter(outStream);
+    CodeGenContext ctx(std::string(argv[1]));
+    CodeGenVisitor codegen(emitter, ctx, symtab); 
+    codegen.generate(*AbstractSyntaxTree);
+    */
+
     cout << "Parsing completed successfully!" << endl;   
 
+    outStream.close();
     return 0;
 }
