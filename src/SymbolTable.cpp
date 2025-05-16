@@ -48,27 +48,24 @@ void SymbolTable::exitScope() {
  * @param inEntry The symbol entry to insert
  * @return true if successful, false if a duplicate exists in current scope
  */
-bool SymbolTable::insert(const SymEntry& inEntry) {
+SymEntry* SymbolTable::insert(const SymEntry& inEntry) {
     Scope& cur = scopes.back();
-    // Check for duplicates in current scope
-    if (cur.find(inEntry.name) != cur.end()) return false;
+    if (cur.find(inEntry.name) != cur.end())
+        return nullptr;
 
-    SymEntry entry = inEntry;  // Create a copy for modifying metadata
-    
-    // Handle metadata differently based on scope
+    SymEntry entry = inEntry;
     if (atGlobalScope()) {
         entry.isGlobal = true;
-        entry.slot = -1;  // Globals don't use slots
-    } else {
+        entry.slot = -1;
+    } else if (!entry.isFunc) {
         entry.isGlobal = false;
-        if (!entry.isFunc) {
-            entry.slot = allocateSlot();  // Allocate slot for local variables
-        }
+        entry.slot = allocateSlot();
     }
 
-    // Add to current scope
-    cur.emplace(entry.name, std::move(entry));
-    return true;
+    auto res = cur.emplace(entry.name, std::move(entry));
+    if (!res.second) return nullptr;
+
+    return &res.first->second;
 }
 
 /**

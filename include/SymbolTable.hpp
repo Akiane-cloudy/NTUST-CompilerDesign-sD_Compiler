@@ -78,7 +78,7 @@ public:
     /**
      * @brief Symbol insertion and lookup methods
      */
-    bool insert(const SymEntry& entry);             // Adds symbol to current scope; returns false if duplicate
+    SymEntry*       insert(const SymEntry& entry);    // Adds symbol to current scope; returns false if duplicate
     SymEntry*       lookup(const std::string& name);  // Non-const lookup
     const SymEntry* lookup(const std::string& name) const;  // Const lookup
 

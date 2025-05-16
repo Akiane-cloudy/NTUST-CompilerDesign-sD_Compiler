@@ -532,8 +532,10 @@ int main(int argc, char *argv[]) {
     }
     yyin = fopen(argv[1], "r");
 
-    // 打开输出文件
-    std::string outputFilename = std::string(argv[1]) + ".j";
+    auto program_name = std::string(argv[1]);
+    program_name = program_name.substr(0, program_name.find_last_of('.'));
+
+    std::string outputFilename = program_name + ".j";
     outStream.open(outputFilename);
     if (!outStream.is_open()) {
         std::cerr << "Error opening output file: " << outputFilename << std::endl;
@@ -548,13 +550,10 @@ int main(int argc, char *argv[]) {
     SemanticAnalyzer semanticAnalyzer(symtab);
     semanticAnalyzer.analyze(*AbstractSyntaxTree);
 
-    /* 临时注释掉代码生成部分，因为 CodeGenVisitor 尚未完全实现
-    // Generate code
     CodeEmitter emitter(outStream);
-    CodeGenContext ctx(std::string(argv[1]));
+    CodeGenContext ctx(program_name);
     CodeGenVisitor codegen(emitter, ctx, symtab); 
     codegen.generate(*AbstractSyntaxTree);
-    */
 
     cout << "Parsing completed successfully!" << endl;   
 

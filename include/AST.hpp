@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+struct SymEntry;
+
 namespace ast {
 
 //--------------------------------------------------------------
@@ -212,6 +214,7 @@ struct CharLit : Expr {
 struct Var : Expr {
     std::string name;
     std::vector<std::unique_ptr<Expr>> indices;  // for arrays
+    SymEntry* sym = nullptr;
     explicit Var(std::string n, int line = 0) : Expr(line), name(std::move(n)) {}
     void accept(Visitor& v) override { v.visit(*this); }
 };
@@ -240,6 +243,7 @@ struct Postfix : Expr {
 struct Call : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;
+    SymEntry* sym = nullptr;
     Call(std::string c, std::vector<std::unique_ptr<Expr>> a, int line = 0)
         : Expr(line), callee(std::move(c)), args(std::move(a)) {}
     void accept(Visitor& v) override { v.visit(*this); }
@@ -346,6 +350,7 @@ struct VarDecl : Decl {
     std::string name;
     std::unique_ptr<Expr> init;  // may be nullptr
     std::vector<int> dims;       // repeated for convenience
+    SymEntry* sym = nullptr;
     VarDecl(Type t, std::string n, std::unique_ptr<Expr> i = {}, bool isC = false, int line = 0)
         : Decl(line), varType(t), name(std::move(n)), init(std::move(i)) { isConst = isC; }
     void accept(Visitor& v) override { v.visit(*this); }
@@ -369,6 +374,7 @@ struct FuncDecl : Decl {
     std::string name;
     std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<Stmt> body;
+    SymEntry* sym = nullptr;
     FuncDecl(Type r, std::string n, std::vector<std::unique_ptr<VarDecl>> p, std::unique_ptr<Stmt> b, int line = 0)
         : Decl(line), returnType(r), name(std::move(n)), params(std::move(p)), body(std::move(b)) {}
     void accept(Visitor& v) override { v.visit(*this); }

@@ -41,6 +41,22 @@ public:
     void visit(ast::Unary&       n) override;
     void visit(ast::Call&        n) override;
 
+    // literals
+    void visit(ast::RealLit&  ) override;
+    void visit(ast::CharLit&  ) override;
+    // postfix / range
+    void visit(ast::Postfix&  ) override;
+    void visit(ast::RangeExpr&) override;
+    // stmt / decl still missing
+    void visit(ast::Read&       ) override;
+    void visit(ast::ForEachStmt&) override;
+    void visit(ast::ExprStmt&   ) override;
+    void visit(ast::EmptyStmt&  ) override;
+    void visit(ast::DeclList&   ) override;
+    void visit(ast::VarDeclList&) override;
+    void visit(ast::ConstDecl&  ) override;
+
+
 private:
     CodeEmitter&  em;
     CodeGenContext& ctx;
