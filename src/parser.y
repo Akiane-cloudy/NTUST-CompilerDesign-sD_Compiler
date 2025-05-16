@@ -156,6 +156,8 @@ std::ofstream outStream;
 %type <func_decl> function_declaration
 %type <var_decl_list> init_declarator_list
 %type <var_decl> init_declarator
+%type <var_decl_list> const_init_list
+%type <const_decl> const_init_declarator
 //========Declaration unit=========
 
 /*Declare end*/
@@ -384,11 +386,8 @@ declaration:
         $$ = $2;
         delete $1;
       }
-    | CONST type init_declarator_list {
-        for (auto& decl : $3->decls) {
-            decl->varType = *$2;
-            decl->isConst = true;
-        }
+    | CONST type const_init_list {
+        for (auto& decl : $3->decls) { decl->varType = *$2; }
         $$ = $3;
         delete $2;
       }
@@ -431,6 +430,36 @@ init_declarator:
         decl->init = std::unique_ptr<ast::Expr>($4);
         delete $1;
         $$ = decl;
+      }
+    ;
+
+const_init_list:
+      const_init_declarator {
+        auto tmp = new ast::VarDeclList();
+        tmp->decls.push_back(std::unique_ptr<ast::ConstDecl>($1));
+        $$ = tmp;
+      }
+    | const_init_list COMMA const_init_declarator {
+        $1->decls.push_back(std::unique_ptr<ast::VarDecl>($3));
+        $$ = $1;
+      }
+    ;
+const_init_declarator:
+      IDENTIFIER ASSIGNMENT expression {
+        $$ = new ast::ConstDecl(
+                 ast::BasicType::Void,
+                 *$1,                       /* 變數名稱 */
+                 std::unique_ptr<ast::Expr>($3),
+                 @$.first_line
+             );
+        delete $1;
+      }
+    | IDENTIFIER dim_list ASSIGNMENT expression {
+        auto cd = new ast::ConstDecl(ast::BasicType::Void, *$1, std::unique_ptr<ast::Expr>($4), @$.first_line);
+        cd->dims = $2->dims;
+        $$ = cd;
+        delete $1;
+        delete $2;
       }
     ;
 
