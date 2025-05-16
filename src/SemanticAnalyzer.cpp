@@ -338,6 +338,7 @@ void SemanticAnalyzer::visit(ast::Var& v) {
     // base type (might be array)
     ast::Type base = ent->type;
     v.ty = base;
+    v.sym = ent;
 
     /*───────────── Array-specific checks ─────────────*/
     if (!v.indices.empty()) {
