@@ -14,7 +14,7 @@
 #include <optional>
 #include <stack>
 
-#include "AST.hpp"       // AST type definitions
+#include "Type.hpp"
 
 /**
  * @brief Type for constant values that can be stored in the symbol table

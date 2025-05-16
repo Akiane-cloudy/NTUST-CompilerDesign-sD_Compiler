@@ -9,7 +9,8 @@
 #include <string>
 #include <vector>
 
-struct SymEntry;
+#include "SymbolTable.hpp"
+#include "Type.hpp"
 
 namespace ast {
 
@@ -96,62 +97,6 @@ struct Visitor {
 };
 
 //--------------------------------------------------------------
-// 4.  Type system (scalar + array dims)
-//--------------------------------------------------------------
-enum class BasicType { Bool,
-                       Char,
-                       Int,
-                       Float,
-                       Double,
-                       String,
-                       Void,
-                       ERROR };  // UNDEFINED for error handling
-
-struct Type {
-    BasicType kind{BasicType::ERROR};
-    std::vector<int> dims;  // empty ⇒ scalar
-
-    Type() = default;
-    Type(BasicType k, std::vector<int> d = {}) : kind(k), dims(std::move(d)) {}
-
-    std::string toString() const {
-        std::string s;
-        switch (kind) {
-            case BasicType::Bool:
-                s = "bool";
-                break;
-            case BasicType::Char:
-                s = "char";
-                break;
-            case BasicType::Int:
-                s = "int";
-                break;
-            case BasicType::Float:
-                s = "float";
-                break;
-            case BasicType::Double:
-                s = "double";
-                break;
-            case BasicType::String:
-                s = "string";
-                break;
-            case BasicType::Void:
-                s = "void";
-                break;
-            case BasicType::ERROR:
-                s = "error";
-                break;
-        }
-        for (int dim : dims) {
-            s += "[" + std::to_string(dim) + "]";
-        }
-        return s;
-    }
-    bool isScalar() const { return dims.empty(); }
-    bool operator==(const Type& rhs) const { return kind == rhs.kind && dims == rhs.dims; }
-};
-
-//--------------------------------------------------------------
 // 5.  Operators (for Unary/Binary/Postfix)
 //--------------------------------------------------------------
 enum class Op {
@@ -214,7 +159,7 @@ struct CharLit : Expr {
 struct Var : Expr {
     std::string name;
     std::vector<std::unique_ptr<Expr>> indices;  // for arrays
-    SymEntry* sym = nullptr;
+    SymEntry sym;
     explicit Var(std::string n, int line = 0) : Expr(line), name(std::move(n)) {}
     void accept(Visitor& v) override { v.visit(*this); }
 };
@@ -243,7 +188,7 @@ struct Postfix : Expr {
 struct Call : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;
-    SymEntry* sym = nullptr;
+    SymEntry sym;
     Call(std::string c, std::vector<std::unique_ptr<Expr>> a, int line = 0)
         : Expr(line), callee(std::move(c)), args(std::move(a)) {}
     void accept(Visitor& v) override { v.visit(*this); }
@@ -350,7 +295,7 @@ struct VarDecl : Decl {
     std::string name;
     std::unique_ptr<Expr> init;  // may be nullptr
     std::vector<int> dims;       // repeated for convenience
-    SymEntry* sym = nullptr;
+    SymEntry sym;
     VarDecl(Type t, std::string n, std::unique_ptr<Expr> i = {}, bool isC = false, int line = 0)
         : Decl(line), varType(t), name(std::move(n)), init(std::move(i)) { isConst = isC; }
     void accept(Visitor& v) override { v.visit(*this); }
@@ -374,7 +319,7 @@ struct FuncDecl : Decl {
     std::string name;
     std::vector<std::unique_ptr<VarDecl>> params;
     std::unique_ptr<Stmt> body;
-    SymEntry* sym = nullptr;
+    SymEntry sym;
     FuncDecl(Type r, std::string n, std::vector<std::unique_ptr<VarDecl>> p, std::unique_ptr<Stmt> b, int line = 0)
         : Decl(line), returnType(r), name(std::move(n)), params(std::move(p)), body(std::move(b)) {}
     void accept(Visitor& v) override { v.visit(*this); }

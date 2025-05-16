@@ -74,7 +74,7 @@ void SemanticAnalyzer::visit(ast::VarDecl& d) {
         entry.arrayValues = std::vector<ConstValue>(total);
     }
     auto* ent = symtab.insert(entry);
-    d.sym = ent;
+    d.sym = *ent;
     if (!ent) {
         error(d.line, "Redefinition of variable '" + d.name + "'");
         entry.type = ast::Type(ast::BasicType::ERROR);  // Set to ERROR for error handling
@@ -108,7 +108,7 @@ void SemanticAnalyzer::visit(ast::ConstDecl& d) {
             entry.value = *cv;
     }
     auto* ent = symtab.insert(entry);
-    d.sym = ent;
+    d.sym = *ent;
     if (!ent) {
         error(d.line, "Redefinition of const '" + d.name + "'");
         entry.type = ast::Type(ast::BasicType::ERROR);  // Set to ERROR for error handling
@@ -344,7 +344,7 @@ void SemanticAnalyzer::visit(ast::Var& v) {
     // base type (might be array)
     ast::Type base = ent->type;
     v.ty = base;
-    v.sym = ent;
+    v.sym = *ent;
 
     /*───────────── Array-specific checks ─────────────*/
     if (!v.indices.empty()) {
@@ -636,7 +636,7 @@ void SemanticAnalyzer::visit(ast::Call& c) {
     
     // Set call expression type to function's return type
     c.ty = ent->returnType.value_or(ast::Type(ast::BasicType::Void));
-    c.sym = ent;
+    c.sym = *ent;
     
     // If return type is error, report
     if (c.ty.kind == ast::BasicType::ERROR) {
@@ -712,7 +712,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     funcEntry.paramTypes = paramTypes;
     
     auto* ent = symtab.insert(funcEntry);
-    fd.sym = ent;
+    fd.sym = *ent;
     if (!ent) {
         error(fd.line, "Redefinition of function '" + fd.name + "'");
         // Don't proceed with analyzing the body if redefinition error

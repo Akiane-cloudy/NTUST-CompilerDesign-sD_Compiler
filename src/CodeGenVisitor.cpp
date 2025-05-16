@@ -13,6 +13,7 @@
 // =============================================================
 #include "CodeGenVisitor.hpp"
 #include <sstream>
+#include <iostream>
 
 using namespace ast;
 
@@ -75,16 +76,16 @@ void CodeGenVisitor::visit(Program& n) {
 //---------------------------------------------------------------
 void CodeGenVisitor::visit(ast::FuncDecl& fn)
 {
-    const SymEntry* ent = fn.sym;             
+    const SymEntry ent = fn.sym;             
     std::stringstream sig;
-    sig << jasmType(ent->returnType.value()) << ' ' << fn.name << '(';
+    sig << jasmType(ent.returnType.value()) << ' ' << fn.name << '(';
 
     if (fn.name == "main") {                   
         sig << "java.lang.String[]";
-    } else if (ent->paramTypes) {
-        for (size_t i = 0; i < ent->paramTypes->size(); ++i) {
-            sig << jasmType((*ent->paramTypes)[i]);
-            if (i + 1 < ent->paramTypes->size()) sig << ',';
+    } else if (ent.paramTypes) {
+        for (size_t i = 0; i < ent.paramTypes->size(); ++i) {
+            sig << jasmType((*ent.paramTypes)[i]);
+            if (i + 1 < ent.paramTypes->size()) sig << ',';
         }
     }
     sig << ')';
@@ -95,10 +96,10 @@ void CodeGenVisitor::visit(ast::FuncDecl& fn)
     em.emit("{");
     em.push();
 
-    ctx.resetLocal(ent->paramTypes ? ent->paramTypes->size() : 0);
+    ctx.resetLocal(ent.paramTypes ? ent.paramTypes->size() : 0);
 
     if (fn.body) fn.body->accept(*this);
-    if (ent->returnType->kind == ast::BasicType::Void)
+    if (ent.returnType->kind == ast::BasicType::Void)
         em.emit("return");
 
     em.pop();
@@ -119,17 +120,14 @@ void CodeGenVisitor::visit(Block& b) {
 void CodeGenVisitor::visit(VarDecl& d) {
     if (d.init) {
         d.init->accept(*this);
-        if (auto* e = d.sym) {
-            emitStore(e);
-        }
+        emitStore(d.sym);
     }
 }
 
 void CodeGenVisitor::visit(Assign& a) {
     a.rhs->accept(*this);
-    if (auto* e = a.lhs->sym) {
-        emitStore(e);
-    }
+    auto e = a.lhs->sym;
+    emitStore(a.lhs->sym);
 }    
 
 //---------------------------------------------------------------
@@ -202,9 +200,8 @@ void CodeGenVisitor::visit(StringLit& n) {
 }
 
 void CodeGenVisitor::visit(Var& v) { 
-    if (auto* e = v.sym) {
-        emitLoad(e);
-    }
+    auto e = v.sym;
+    emitLoad(e);
 }
 
 //---------------------------------------------------------------
@@ -318,40 +315,40 @@ void CodeGenVisitor::visit(ast::Call& c)
 {
     for (auto& arg : c.args) arg->accept(*this);
 
-    const SymEntry* fn = c.sym;                     
+    const SymEntry fn = c.sym;                     
     std::stringstream sig;
     sig << '(';
-    if (fn->paramTypes) {
-        for (size_t i = 0; i < fn->paramTypes->size(); ++i) {
-            sig << jasmType((*fn->paramTypes)[i]);
-            if (i + 1 < fn->paramTypes->size()) sig << ',';
+    if (fn.paramTypes) {
+        for (size_t i = 0; i < fn.paramTypes->size(); ++i) {
+            sig << jasmType((*fn.paramTypes)[i]);
+            if (i + 1 < fn.paramTypes->size()) sig << ',';
         }
     }
-    sig << ')' << jasmType(fn->returnType.value());
-    em.emit("invokestatic " + ctx.className + '.' + fn->name + sig.str());
+    sig << ')' << jasmType(fn.returnType.value());
+    em.emit("invokestatic " + ctx.className + '.' + fn.name + sig.str());
 }
 
 
 // ----------------------------------------------------------------
 // Helper methods for loading/storing variables
 // ----------------------------------------------------------------
-void CodeGenVisitor::emitLoad(const SymEntry* entry) {
-    if (entry->isGlobal) {
-        std::string desc = (entry->type.kind == BasicType::String ? "java.lang.String" :
-                            (entry->type.kind == BasicType::Bool ? "boolean" : "int"));
-        em.emit("getstatic " + ctx.className + "/" + entry->name + " " + desc);
+void CodeGenVisitor::emitLoad(const SymEntry entry) {
+    if (entry.isGlobal) {
+        std::string desc = (entry.type.kind == BasicType::String ? "java.lang.String" :
+                            (entry.type.kind == BasicType::Bool ? "boolean" : "int"));
+        em.emit("getstatic " + ctx.className + "/" + entry.name + " " + desc);
     } else {
-        em.emit("iload " + std::to_string(entry->slot));
+        em.emit("iload " + std::to_string(entry.slot));
     }
 }
 
-void CodeGenVisitor::emitStore(const SymEntry* entry) {
-    if (entry->isGlobal) {
-        std::string desc = (entry->type.kind == BasicType::String ? "java.lang.String" :
-                            (entry->type.kind == BasicType::Bool ? "boolean" : "int"));
-        em.emit("putstatic " + ctx.className + "/" + entry->name + " " + desc);
+void CodeGenVisitor::emitStore(const SymEntry entry) {
+    if (entry.isGlobal) {
+        std::string desc = (entry.type.kind == BasicType::String ? "java.lang.String" :
+                            (entry.type.kind == BasicType::Bool ? "boolean" : "int"));
+        em.emit("putstatic " + ctx.className + "/" + entry.name + " " + desc);
     } else {
-        em.emit("istore " + std::to_string(entry->slot));
+        em.emit("istore " + std::to_string(entry.slot));
     }
 }
 
