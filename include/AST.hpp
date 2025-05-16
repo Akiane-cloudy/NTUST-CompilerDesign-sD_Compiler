@@ -180,8 +180,8 @@ struct Binary : Expr {
 };
 struct Postfix : Expr {
     Op op;
-    std::unique_ptr<Expr> operand;
-    Postfix(Op o, std::unique_ptr<Expr> e, int line = 0)
+    std::unique_ptr<Var> operand;
+    Postfix(Op o, std::unique_ptr<Var> e, int line = 0)
         : Expr(line), op(o), operand(std::move(e)) {}
     void accept(Visitor& v) override { v.visit(*this); }
 };

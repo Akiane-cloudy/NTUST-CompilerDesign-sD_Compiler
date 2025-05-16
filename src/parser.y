@@ -356,8 +356,8 @@ expression:
     | expression OR  expression             { $$ = new ast::Binary(ast::Op::Or,       std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
     | NOT expression                        { $$ = new ast::Unary( ast::Op::Not,   std::unique_ptr<ast::Expr>($2), @$.first_line); }
     | SUBTRACTION expression %prec UMINUS   { $$ = new ast::Unary( ast::Op::Minus, std::unique_ptr<ast::Expr>($2), @$.first_line); }
-    | expression DOUBLE_ADDITION            { $$ = new ast::Postfix(ast::Op::Inc,  std::unique_ptr<ast::Expr>($1), @$.first_line); }
-    | expression DOUBLE_SUBTRACTION         { $$ = new ast::Postfix(ast::Op::Dec,  std::unique_ptr<ast::Expr>($1), @$.first_line); }
+    | lvalue DOUBLE_ADDITION                { $$ = new ast::Postfix(ast::Op::Inc,  std::unique_ptr<ast::Var>($1), @$.first_line); }
+    | lvalue DOUBLE_SUBTRACTION             { $$ = new ast::Postfix(ast::Op::Dec,  std::unique_ptr<ast::Var>($1), @$.first_line); }
     | LEFT_PARENTHESIS expression RIGHT_PARENTHESIS                    { $$ = $2; }
     | IDENTIFIER LEFT_PARENTHESIS call_argument_list RIGHT_PARENTHESIS { $$ = new ast::Call(*$1, std::move(*$3), @$.first_line); delete $1; }
     | IDENTIFIER LEFT_PARENTHESIS RIGHT_PARENTHESIS { $$ = new ast::Call(*$1, {}, @$.first_line); delete $1; }

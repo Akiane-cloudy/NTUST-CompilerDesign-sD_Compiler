@@ -1,16 +1,3 @@
-// =============================================================
-// CodeGenVisitor.cpp — Phase‑2 : arithmetic, comparison, unary, return, call
-//   Supported now
-//     • class / global fields / main (↔ Phase‑1)
-//     • literals: int, bool, string
-//     • println / print
-//     • variable load / store / assign
-//     • if / while / block
-//     • **NEW**  binary arithmetic + comparison  (+‑*/% < <= > >= == != && ||)
-//     • **NEW**  unary minus / logical not
-//     • **NEW**  return  (void / int / bool / string)
-//     • **NEW**  static function call (void / int, ≤4 int/bool/string args)
-// =============================================================
 #include "CodeGenVisitor.hpp"
 #include <sstream>
 #include <iostream>
@@ -28,23 +15,46 @@ static std::string jasmType(const ast::Type& t) {
     }
 }
 
-//---------------------------------------------------------------
 void CodeGenVisitor::generate(Program& root) { 
     root.accept(*this); 
 }
 
-//---------------------------------------------------------------
-// Program
-//---------------------------------------------------------------
 void CodeGenVisitor::visit(Program& n) {
     if (ctx.className.empty()) ctx.className = "example";
     em.emit("class " + ctx.className);
     em.emit("{");
     em.push();
 
-    // global fields
     for (auto& d : n.globals) {
-        if (auto* vd = dynamic_cast<VarDecl*>(d.get())) {
+        if (auto* vdl = dynamic_cast<VarDeclList*>(d.get())) {
+            for (auto& inner : vdl->decls) {
+                auto* vd = inner.get();
+                std::string type;
+                switch (vd->varType.kind) {
+                    case BasicType::Int:    type = "int"; break;
+                    case BasicType::Bool:   type = "boolean"; break;
+                    case BasicType::String: type = "java.lang.String"; break;
+                    default: continue;
+                }
+                std::string instruction = "field static " + type + " " + vd->name;
+                if (vd->init) {
+                    // handle literal initializers inline
+                    if (auto* il = dynamic_cast<ast::IntLit*>(vd->init.get())) {
+                        instruction += " = " + std::to_string(il->value);
+                    } else if (auto* bl = dynamic_cast<ast::BoolLit*>(vd->init.get())) {
+                        instruction += " = " + std::string(bl->value ? "1" : "0");
+                    } else if (auto* sl = dynamic_cast<ast::StringLit*>(vd->init.get())) {
+                        instruction += " = \"" + sl->value + "\"";
+                    } else {
+                        // non-literal initializer: emit separately
+                        vd->init->accept(*this);
+                        em.emit(instruction);
+                        continue;
+                    }
+                }
+                em.emit(instruction);
+            }
+        } else if (auto* vd = dynamic_cast<VarDecl*>(d.get())) {
             std::string type;
             switch (vd->varType.kind) {
                 case BasicType::Int:    type = "int"; break;
@@ -52,7 +62,23 @@ void CodeGenVisitor::visit(Program& n) {
                 case BasicType::String: type = "java.lang.String"; break;
                 default: continue;
             }
-            em.emit("field static " + type + " " + vd->name);
+            std::string instruction = "field static " + type + " " + vd->name;
+            if (vd->init) {
+                // handle literal initializers inline
+                if (auto* il = dynamic_cast<ast::IntLit*>(vd->init.get())) {
+                    instruction += " = " + std::to_string(il->value);
+                } else if (auto* bl = dynamic_cast<ast::BoolLit*>(vd->init.get())) {
+                    instruction += " = " + std::string(bl->value ? "1" : "0");
+                } else if (auto* sl = dynamic_cast<ast::StringLit*>(vd->init.get())) {
+                    instruction += " = \"" + sl->value + "\"";
+                } else {
+                    // non-literal initializer: emit separately
+                    em.emit(instruction);
+                    vd->init->accept(*this);
+                    continue;
+                }
+            }
+            em.emit(instruction);
         }
     }
 
@@ -282,9 +308,6 @@ void CodeGenVisitor::visit(Binary& b) {
             break; 
         }
         case Op::And: {
-            std::string Lfalse = ctx.newLabel(), Lend = ctx.newLabel();
-            em.emit("ifeq " + Lfalse); // lhs false -> result false
-            b.rhs->accept(*this);    // we already pushed rhs above, so duplicate? Actually we evaluated after lhs? need re eval. We'll implement short-circuit properly later; for now simple 'iand'
             em.emit("iand"); 
             break;
         } 
@@ -336,7 +359,7 @@ void CodeGenVisitor::emitLoad(const SymEntry entry) {
     if (entry.isGlobal) {
         std::string desc = (entry.type.kind == BasicType::String ? "java.lang.String" :
                             (entry.type.kind == BasicType::Bool ? "boolean" : "int"));
-        em.emit("getstatic " + ctx.className + "/" + entry.name + " " + desc);
+        em.emit("getstatic " + desc + ' ' + ctx.className + "." + entry.name + " ");
     } else {
         em.emit("iload " + std::to_string(entry.slot));
     }
@@ -346,7 +369,7 @@ void CodeGenVisitor::emitStore(const SymEntry entry) {
     if (entry.isGlobal) {
         std::string desc = (entry.type.kind == BasicType::String ? "java.lang.String" :
                             (entry.type.kind == BasicType::Bool ? "boolean" : "int"));
-        em.emit("putstatic " + ctx.className + "/" + entry.name + " " + desc);
+        em.emit("putstatic " + desc + ' ' + ctx.className + "." + entry.name + " ");
     } else {
         em.emit("istore " + std::to_string(entry.slot));
     }
@@ -418,9 +441,19 @@ void CodeGenVisitor::visit(ast::Postfix& p) {
     if (p.op == Op::Inc) { 
         em.emit("iconst_1"); 
         em.emit("iadd"); 
+        if (p.operand->sym.isGlobal) {
+            em.emit("putstatic " + jasmType(p.ty) + ' ' + ctx.className + "." + p.operand->sym.name);
+        } else {
+            em.emit("istore " + std::to_string(p.operand->sym.slot));
+        }
     } else if (p.op == Op::Dec) { 
         em.emit("iconst_1"); 
         em.emit("isub"); 
+        if (p.operand->sym.isGlobal) {
+            em.emit("putstatic " + jasmType(p.ty) + ' ' + ctx.className + "." + p.operand->sym.name);
+        } else {
+            em.emit("istore " + std::to_string(p.operand->sym.slot));
+        }
     }
 }
 

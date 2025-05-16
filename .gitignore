@@ -13,3 +13,4 @@ token.txt
 *.j
 *.sd
 *.class
+*.log
