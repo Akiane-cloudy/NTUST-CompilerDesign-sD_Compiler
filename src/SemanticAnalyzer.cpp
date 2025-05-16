@@ -233,10 +233,16 @@ void SemanticAnalyzer::visit(ast::IfStmt& s) {
         error(s.line, "Condition in if statement must be boolean");
     }
     
+    symtab.enterScope();
+    ++skipBlockScopeOnce;
     s.thenStmt->accept(*this);
+    symtab.exitScope();
     
     if (s.elseStmt) {
+        symtab.enterScope();
+        ++skipBlockScopeOnce;
         s.elseStmt->accept(*this);
+        symtab.exitScope();
     }
 }
 
