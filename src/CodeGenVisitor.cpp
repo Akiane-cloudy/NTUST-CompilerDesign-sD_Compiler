@@ -111,7 +111,7 @@ void CodeGenVisitor::visit(ast::FuncDecl& fn)
     } else if (ent.paramTypes) {
         for (size_t i = 0; i < ent.paramTypes->size(); ++i) {
             sig << jasmType((*ent.paramTypes)[i]);
-            if (i + 1 < ent.paramTypes->size()) sig << ',';
+            if (i + 1 < ent.paramTypes->size()) sig << ", ";
         }
     }
     sig << ')';
@@ -344,11 +344,11 @@ void CodeGenVisitor::visit(ast::Call& c)
     if (fn.paramTypes) {
         for (size_t i = 0; i < fn.paramTypes->size(); ++i) {
             sig << jasmType((*fn.paramTypes)[i]);
-            if (i + 1 < fn.paramTypes->size()) sig << ',';
+            if (i + 1 < fn.paramTypes->size()) sig << ", ";
         }
     }
-    sig << ')' << jasmType(fn.returnType.value());
-    em.emit("invokestatic " + ctx.className + '.' + fn.name + sig.str());
+    sig << ')';
+    em.emit("invokestatic " + jasmType(fn.returnType.value()) + ' ' + ctx.className + '.' + fn.name + sig.str());
 }
 
 
