@@ -393,8 +393,73 @@ void CodeGenVisitor::visit(ast::ForStmt& s) {
 }
 
 void CodeGenVisitor::visit(ast::ForEachStmt& s) {
-    // minimal: just generate body
-    if (s.body) s.body->accept(*this);
+    auto* range = dynamic_cast<ast::RangeExpr*>(s.collection.get());
+    if (!range) return;
+
+    const SymEntry& idxSym = s.var->sym;        // Loop variable i
+
+    range->start->accept(*this);                // push start
+    emitStore(idxSym);                          // istore idxSlot
+
+    // Determine ascending or descending order
+    range->start->accept(*this);                // push start
+    range->end->accept(*this);                  // push end
+    std::string L_ascCond  = ctx.newLabel();
+    std::string L_descCond = ctx.newLabel();
+    std::string L_end      = ctx.newLabel();
+    em.emit("if_icmple " + L_ascCond);          // start <= end → ascending
+    em.emit("goto " + L_descCond);              // or descending
+
+    // ascending
+    em.emit(L_ascCond + ":");
+    {
+        std::string L_body = ctx.newLabel();
+        em.emit("goto " + L_body + "_cond");
+
+        // body
+        em.emit(L_body + ":");
+        s.body->accept(*this);
+
+        // i = i + 1
+        emitLoad(idxSym);
+        em.emit("iconst_1");
+        em.emit("iadd");
+        emitStore(idxSym);
+
+        // condition
+        em.emit(L_body + "_cond:");
+        emitLoad(idxSym);           // push i
+        range->end->accept(*this);  // push end
+        em.emit("if_icmple " + L_body);   // i <= end → 進下一輪
+        em.emit("goto " + L_end);         // 否則結束
+    }
+
+    // acending
+    em.emit(L_descCond + ":");
+    {
+        std::string L_body = ctx.newLabel();
+        em.emit("goto " + L_body + "_cond");
+
+        // body
+        em.emit(L_body + ":");
+        s.body->accept(*this);
+
+        // i = i - 1
+        emitLoad(idxSym);
+        em.emit("iconst_1");
+        em.emit("isub");
+        emitStore(idxSym);
+
+        // condiction
+        em.emit(L_body + "_cond:");
+        emitLoad(idxSym);           // push i
+        range->end->accept(*this);  // push end
+        em.emit("if_icmpge " + L_body);   // i >= end → 進下一輪
+        em.emit("goto " + L_end);
+    }
+
+    // Exit loop
+    em.emit(L_end + ":");
 }
 
 void CodeGenVisitor::visit(ast::VarDeclList& dl) {
@@ -410,8 +475,7 @@ void CodeGenVisitor::visit(ast::DeclList& dl) {
 }
 
 void CodeGenVisitor::visit(ast::ConstDecl& d) {
-    // treat as VarDecl
-    visit(static_cast<ast::VarDecl&>(d));
+    visit(static_cast<ast::VarDecl&>(d)); // treat as VarDecl
 }
 
 void CodeGenVisitor::visit(ast::ExprStmt& s) {
