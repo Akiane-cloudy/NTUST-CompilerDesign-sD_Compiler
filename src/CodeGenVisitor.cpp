@@ -214,7 +214,24 @@ void CodeGenVisitor::visit(WhileStmt& s) {
 // Literals & Var
 //---------------------------------------------------------------
 void CodeGenVisitor::visit(IntLit& n) { 
-    em.emit("sipush " + std::to_string(n.value)); 
+    int v = n.value;
+    if (v >= -1 && v <= 5) {
+        switch (v) {
+            case -1: em.emit("iconst_m1"); break;
+            case 0:  em.emit("iconst_0");  break;
+            case 1:  em.emit("iconst_1");  break;
+            case 2:  em.emit("iconst_2");  break;
+            case 3:  em.emit("iconst_3");  break;
+            case 4:  em.emit("iconst_4");  break;
+            case 5:  em.emit("iconst_5");  break;
+        }
+    }
+    else if (v >= -128 && v <= 127) {
+        em.emit("bipush " + std::to_string(v));
+    }
+    else {
+        em.emit("ldc " + std::to_string(v));
+    }
 }
 
 void CodeGenVisitor::visit(BoolLit& n) { 
@@ -501,23 +518,23 @@ void CodeGenVisitor::visit(ast::RealLit& r) {
 }
 
 void CodeGenVisitor::visit(ast::Postfix& p) {
-    p.operand->accept(*this);
-    if (p.op == Op::Inc) { 
-        em.emit("iconst_1"); 
-        em.emit("iadd"); 
-        if (p.operand->sym.isGlobal) {
-            em.emit("putstatic " + jasmType(p.ty) + ' ' + ctx.className + "." + p.operand->sym.name);
-        } else {
-            em.emit("istore " + std::to_string(p.operand->sym.slot));
-        }
-    } else if (p.op == Op::Dec) { 
-        em.emit("iconst_1"); 
-        em.emit("isub"); 
-        if (p.operand->sym.isGlobal) {
-            em.emit("putstatic " + jasmType(p.ty) + ' ' + ctx.className + "." + p.operand->sym.name);
-        } else {
-            em.emit("istore " + std::to_string(p.operand->sym.slot));
-        }
+    const auto& sym = p.operand->sym;
+    std::string desc = jasmType(p.ty);
+    std::string field = ctx.className + "." + sym.name;
+
+    if (sym.isGlobal) {
+        em.emit("getstatic " + desc + " " + field);
+        em.emit("dup");            
+        em.emit("iconst_1");       
+        if (p.op == Op::Inc) em.emit("iadd"); else em.emit("isub");
+        em.emit("putstatic " + desc + " " + field);
+    } else {
+        int slot = sym.slot;
+        em.emit("iload " + std::to_string(slot)); 
+        em.emit("dup");                             
+        em.emit("iconst_1");                        
+        if (p.op == Op::Inc) em.emit("iadd"); else em.emit("isub");
+        em.emit("istore " + std::to_string(slot));  
     }
 }
 

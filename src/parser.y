@@ -31,10 +31,12 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <string>
 #include "../include/SemanticAnalyzer.hpp"
 #include "../include/CodeGenVisitor.hpp"
 using namespace std;
+namespace fs = std::filesystem;
 
 extern int yylex();
 extern FILE *yyin;
@@ -557,18 +559,23 @@ ast::Program* parse() {
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printf ("Usage: parser <FILE_NAME>\n");
-        exit(1);
+        return EXIT_FAILURE;
     }
-    yyin = fopen(argv[1], "r");
 
-    auto program_name = std::string(argv[1]);
-    program_name = program_name.substr(0, program_name.find_last_of('.'));
+    fs::path inputPath(argv[1]);
+    yyin = fopen(inputPath.string().c_str(), "r");
+    if (!yyin) {
+        std::perror("fopen");
+        return EXIT_FAILURE;
+    }
 
+    std::string program_name = inputPath.stem().string();
     std::string outputFilename = program_name + ".j";
-    outStream.open(outputFilename);
+
+    std::ofstream outStream(outputFilename);
     if (!outStream.is_open()) {
-        std::cerr << "Error opening output file: " << outputFilename << std::endl;
-        exit(1);
+        std::cerr << "Error opening output file: " << outputFilename << '\n';
+        return EXIT_FAILURE;
     }
 
     // Parse the input file and generate the AST
@@ -579,6 +586,7 @@ int main(int argc, char *argv[]) {
     SemanticAnalyzer semanticAnalyzer(symtab);
     semanticAnalyzer.analyze(*AbstractSyntaxTree);
 
+    // Generate code from the AST
     CodeEmitter emitter(outStream);
     CodeGenContext ctx(program_name);
     CodeGenVisitor codegen(emitter, ctx, symtab); 
