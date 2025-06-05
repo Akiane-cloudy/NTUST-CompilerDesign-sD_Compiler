@@ -201,20 +201,38 @@ void CodeGenVisitor::visit(Println& p) {
 //---------------------------------------------------------------
 // Control: if / while
 //---------------------------------------------------------------
-void CodeGenVisitor::visit(IfStmt& s) {
-    auto L = ctx.newLabel();
-    s.cond->accept(*this);
-    em.emit("ifeq " + L);
-    s.thenStmt->accept(*this);
-    
+void CodeGenVisitor::visit(IfStmt& s)
+{
     if (s.elseStmt) {
-        auto Lend = ctx.newLabel();
+        std::string Lelse = ctx.newLabel();  
+        std::string Lend  = ctx.newLabel();  
+
+        s.cond->accept(*this);
+        em.emit("ifeq " + Lelse);
+
+        /* then branch */
+        s.thenStmt->accept(*this);
         em.emit("goto " + Lend);
-        em.emit(L + ":");
+
+        /* else branch */
+        em.emit(Lelse + ":");
         s.elseStmt->accept(*this);
+
+        /* block 結尾 —— 加 nop 防止 label 無指令 */
         em.emit(Lend + ":");
+        em.emit("nop");          
+
     } else {
-        em.emit(L + ":");
+        std::string Lend = ctx.newLabel();
+
+        s.cond->accept(*this);
+        em.emit("ifeq " + Lend);
+
+        /* then branch */
+        s.thenStmt->accept(*this);
+
+        em.emit(Lend + ":");
+        em.emit("nop");          
     }
 }
 
@@ -360,7 +378,12 @@ void CodeGenVisitor::visit(Binary& b) {
 void CodeGenVisitor::visit(ReturnStmt& r) { 
     if (r.expr) { 
         r.expr->accept(*this); 
-        em.emit("ireturn"); 
+        // Check the return type and emit appropriate return instruction
+        if (r.expr->ty.kind == BasicType::String) {
+            em.emit("areturn");
+        } else {
+            em.emit("ireturn"); 
+        }
     } else {
         em.emit("return"); 
     }
