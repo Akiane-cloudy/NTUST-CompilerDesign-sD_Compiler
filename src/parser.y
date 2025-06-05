@@ -570,7 +570,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::string program_name = inputPath.stem().string();
-    std::string outputFilename = program_name + ".j";
+    std::string outputFilename = program_name + ".jasm";
 
     std::ofstream outStream(outputFilename);
     if (!outStream.is_open()) {

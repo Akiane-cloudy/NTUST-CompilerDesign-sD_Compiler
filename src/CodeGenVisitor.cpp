@@ -25,6 +25,7 @@ void CodeGenVisitor::visit(Program& n) {
     em.emit("{");
     em.push();
 
+    std::vector<std::pair<ast::VarDecl*, ast::Expr*>> init_with_exprs;
     for (auto& d : n.globals) {
         if (auto* vdl = dynamic_cast<VarDeclList*>(d.get())) {
             for (auto& inner : vdl->decls) {
@@ -47,7 +48,8 @@ void CodeGenVisitor::visit(Program& n) {
                         instruction += " = \"" + sl->value + "\"";
                     } else {
                         // non-literal initializer: emit separately
-                        vd->init->accept(*this);
+                        //vd->init->accept(*this);
+                        init_with_exprs.emplace_back(vd, vd->init.get());
                         em.emit(instruction);
                         continue;
                     }
@@ -73,14 +75,30 @@ void CodeGenVisitor::visit(Program& n) {
                     instruction += " = \"" + sl->value + "\"";
                 } else {
                     // non-literal initializer: emit separately
+                    init_with_exprs.emplace_back(vd, vd->init.get());
                     em.emit(instruction);
-                    vd->init->accept(*this);
+                    //vd->init->accept(*this);
                     continue;
                 }
             }
             em.emit(instruction);
         }
     }
+
+    if (!init_with_exprs.empty()){
+            em.emit("method static void <clinit>()");
+            em.emit("max_stack 32");
+            em.emit("max_locals 32");
+            em.emit("{");
+            em.push();
+            for (const auto& [vd, expr] : init_with_exprs) {
+                expr->accept(*this);
+                emitStore(vd->sym);  // store into the static field
+            }
+            em.emit("return");
+            em.pop();
+            em.emit("}");
+        }
 
     // function decl (from globals + stmts)
     auto emitFuncs = [&](auto& vec) {

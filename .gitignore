@@ -10,7 +10,7 @@ token.txt
 /example
 /javaaPortable
 /javaa
-*.j
+*.jasm
 *.sd
 *.class
 *.log

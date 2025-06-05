@@ -64,6 +64,6 @@ clean:
 	@rm -rf $(BUILD) $(BIN) \
            $(SRC)/y.tab.cpp $(INCLUDE)/y.tab.hpp $(SRC)/yy.lex.cpp\
 		   token.txt\
-		   *.j\
+		   *.jasm\
 		   *.class\
 		   *.log
