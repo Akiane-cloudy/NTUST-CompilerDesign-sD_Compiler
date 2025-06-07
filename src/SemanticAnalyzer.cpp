@@ -223,7 +223,7 @@ void SemanticAnalyzer::visit(ast::Assign& a) {
         ent->value.reset();
 
     // assignment expression result is the RHS type. for instance: a = b -> <Type_of_b>
-    a.ty = a.rhs->ty;
+    a.ty = ast::BasicType::Void;
 }
 
 // Visit if statement
@@ -233,14 +233,15 @@ void SemanticAnalyzer::visit(ast::IfStmt& s) {
         error(s.line, "Condition in if statement must be boolean");
     }
     
+    
     symtab.enterScope();
-    ++skipBlockScopeOnce;
+    if (dynamic_cast<ast::Block*>(s.thenStmt.get())) ++skipBlockScopeOnce;
     s.thenStmt->accept(*this);
     symtab.exitScope();
-    
+
     if (s.elseStmt) {
         symtab.enterScope();
-        ++skipBlockScopeOnce;
+        if (dynamic_cast<ast::Block*>(s.elseStmt.get())) ++skipBlockScopeOnce;
         s.elseStmt->accept(*this);
         symtab.exitScope();
     }
