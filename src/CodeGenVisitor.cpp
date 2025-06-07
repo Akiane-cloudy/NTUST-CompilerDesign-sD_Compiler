@@ -212,7 +212,11 @@ void CodeGenVisitor::visit(IfStmt& s)
 
         /* then branch */
         s.thenStmt->accept(*this);
-        em.emit("goto " + Lend);
+        
+        // 只有當 then 分支不以 return 結尾時才生成 goto
+        if (!endsWithReturn(s.thenStmt.get())) {
+            em.emit("goto " + Lend);
+        }
 
         /* else branch */
         em.emit(Lelse + ":");
@@ -582,4 +586,35 @@ void CodeGenVisitor::visit(ast::Postfix& p) {
 void CodeGenVisitor::visit(ast::RangeExpr& r) {
     r.start->accept(*this);
     r.end->accept(*this);
+}
+
+// ----------------------------------------------------------------
+// Helper function to check if a statement ends with return
+// ----------------------------------------------------------------
+bool CodeGenVisitor::endsWithReturn(ast::Stmt* stmt) {
+    if (!stmt) return false;
+    
+    // Direct return statement
+    if (dynamic_cast<ast::ReturnStmt*>(stmt)) {
+        return true;
+    }
+    
+    // Block statement - check the last statement
+    if (auto* block = dynamic_cast<ast::Block*>(stmt)) {
+        if (!block->stmts.empty()) {
+            return endsWithReturn(block->stmts.back().get());
+        }
+        return false;
+    }
+    
+    // If statement - returns true only if both branches end with return
+    if (auto* ifStmt = dynamic_cast<ast::IfStmt*>(stmt)) {
+        if (ifStmt->elseStmt) {
+            return endsWithReturn(ifStmt->thenStmt.get()) && 
+                   endsWithReturn(ifStmt->elseStmt.get());
+        }
+        return false; // if without else can't guarantee return
+    }
+    
+    return false;
 }
