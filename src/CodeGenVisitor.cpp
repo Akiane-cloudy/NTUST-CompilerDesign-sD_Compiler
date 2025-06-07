@@ -542,7 +542,10 @@ void CodeGenVisitor::visit(ast::ConstDecl& d) {
 
 void CodeGenVisitor::visit(ast::ExprStmt& s) {
     if (s.expr) {
-        s.expr->accept(*this);
+        s.expr->accept(*this);      
+        if (s.expr->ty.kind != BasicType::Void && s.expr->ty.kind != BasicType::ERROR) {
+            em.emit("pop");
+        }
     }
 }
 

@@ -67,7 +67,4 @@ private:
     void emitStore(const SymEntry entry);  // istore / putstatic
     void emitBinaryOp(ast::Op op, ast::Type t); // iadd / isub / imul …
     bool endsWithReturn(ast::Stmt* stmt);   // check if statement ends with return
-
-    // track目前 gen 的最大 stack 深度 (簡易版本：可先寫常值 15，再做估計演算法)
-    int maxStack = 15;
 };
