@@ -9,7 +9,7 @@ std::optional<ConstValue> evalConstExpr(ast::Expr* e);
 // SemanticAnalyzer performs semantic checks and type resolution
 class SemanticAnalyzer : public ast::Visitor {
    public:
-    SemanticAnalyzer();
+    SemanticAnalyzer(SymbolTable& st) : symtab(st) {};
     void analyze(ast::Program& prog);
 
     // Visitor overrides
@@ -44,7 +44,7 @@ class SemanticAnalyzer : public ast::Visitor {
     void visit(ast::FuncDecl& fd) override;
 
    private:
-    SymbolTable symtab;
+    SymbolTable& symtab;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
     std::optional<ast::Type> currentFunctionReturnType; // Track current function's return type

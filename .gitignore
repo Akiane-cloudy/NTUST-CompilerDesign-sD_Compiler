@@ -8,3 +8,9 @@ parser
 token.txt
 *.d
 /example
+/javaaPortable
+/javaa
+*.jasm
+*.sd
+*.class
+*.log

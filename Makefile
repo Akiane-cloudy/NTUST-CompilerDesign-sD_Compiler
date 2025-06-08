@@ -63,4 +63,7 @@ clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD) $(BIN) \
            $(SRC)/y.tab.cpp $(INCLUDE)/y.tab.hpp $(SRC)/yy.lex.cpp\
-		   token.txt
+		   token.txt\
+		   *.jasm\
+		   *.class\
+		   *.log

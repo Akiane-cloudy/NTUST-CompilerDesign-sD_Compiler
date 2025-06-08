@@ -30,8 +30,13 @@
 %{
 #include <stdio.h>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <string>
 #include "../include/SemanticAnalyzer.hpp"
+#include "../include/CodeGenVisitor.hpp"
 using namespace std;
+namespace fs = std::filesystem;
 
 extern int yylex();
 extern FILE *yyin;
@@ -41,6 +46,7 @@ void yywarning(std::string s);
 ast::Program* parse();
 
 ast::Program* root = nullptr;
+std::ofstream outStream;
 %}
 
 %union {
@@ -152,6 +158,8 @@ ast::Program* root = nullptr;
 %type <func_decl> function_declaration
 %type <var_decl_list> init_declarator_list
 %type <var_decl> init_declarator
+%type <var_decl_list> const_init_list
+%type <const_decl> const_init_declarator
 //========Declaration unit=========
 
 /*Declare end*/
@@ -350,8 +358,8 @@ expression:
     | expression OR  expression             { $$ = new ast::Binary(ast::Op::Or,       std::unique_ptr<ast::Expr>($1), std::unique_ptr<ast::Expr>($3), @$.first_line); }
     | NOT expression                        { $$ = new ast::Unary( ast::Op::Not,   std::unique_ptr<ast::Expr>($2), @$.first_line); }
     | SUBTRACTION expression %prec UMINUS   { $$ = new ast::Unary( ast::Op::Minus, std::unique_ptr<ast::Expr>($2), @$.first_line); }
-    | expression DOUBLE_ADDITION            { $$ = new ast::Postfix(ast::Op::Inc,  std::unique_ptr<ast::Expr>($1), @$.first_line); }
-    | expression DOUBLE_SUBTRACTION         { $$ = new ast::Postfix(ast::Op::Dec,  std::unique_ptr<ast::Expr>($1), @$.first_line); }
+    | lvalue DOUBLE_ADDITION                { $$ = new ast::Postfix(ast::Op::Inc,  std::unique_ptr<ast::Var>($1), @$.first_line); }
+    | lvalue DOUBLE_SUBTRACTION             { $$ = new ast::Postfix(ast::Op::Dec,  std::unique_ptr<ast::Var>($1), @$.first_line); }
     | LEFT_PARENTHESIS expression RIGHT_PARENTHESIS                    { $$ = $2; }
     | IDENTIFIER LEFT_PARENTHESIS call_argument_list RIGHT_PARENTHESIS { $$ = new ast::Call(*$1, std::move(*$3), @$.first_line); delete $1; }
     | IDENTIFIER LEFT_PARENTHESIS RIGHT_PARENTHESIS { $$ = new ast::Call(*$1, {}, @$.first_line); delete $1; }
@@ -380,11 +388,8 @@ declaration:
         $$ = $2;
         delete $1;
       }
-    | CONST type init_declarator_list {
-        for (auto& decl : $3->decls) {
-            decl->varType = *$2;
-            decl->isConst = true;
-        }
+    | CONST type const_init_list {
+        for (auto& decl : $3->decls) { decl->varType = *$2; }
         $$ = $3;
         delete $2;
       }
@@ -427,6 +432,36 @@ init_declarator:
         decl->init = std::unique_ptr<ast::Expr>($4);
         delete $1;
         $$ = decl;
+      }
+    ;
+
+const_init_list:
+      const_init_declarator {
+        auto tmp = new ast::VarDeclList();
+        tmp->decls.push_back(std::unique_ptr<ast::ConstDecl>($1));
+        $$ = tmp;
+      }
+    | const_init_list COMMA const_init_declarator {
+        $1->decls.push_back(std::unique_ptr<ast::VarDecl>($3));
+        $$ = $1;
+      }
+    ;
+const_init_declarator:
+      IDENTIFIER ASSIGNMENT expression {
+        $$ = new ast::ConstDecl(
+                 ast::BasicType::Void,
+                 *$1,                       /* 變數名稱 */
+                 std::unique_ptr<ast::Expr>($3),
+                 @$.first_line
+             );
+        delete $1;
+      }
+    | IDENTIFIER dim_list ASSIGNMENT expression {
+        auto cd = new ast::ConstDecl(ast::BasicType::Void, *$1, std::unique_ptr<ast::Expr>($4), @$.first_line);
+        cd->dims = $2->dims;
+        $$ = cd;
+        delete $1;
+        delete $2;
       }
     ;
 
@@ -524,15 +559,41 @@ ast::Program* parse() {
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printf ("Usage: parser <FILE_NAME>\n");
-        exit(1);
+        return EXIT_FAILURE;
     }
-    yyin = fopen(argv[1], "r");
 
-    auto parse_tree = parse();
-    
-    SemanticAnalyzer semanticAnalyzer;
-    semanticAnalyzer.analyze(*parse_tree);
+    fs::path inputPath(argv[1]);
+    yyin = fopen(inputPath.string().c_str(), "r");
+    if (!yyin) {
+        std::perror("fopen");
+        return EXIT_FAILURE;
+    }
+
+    std::string program_name = inputPath.stem().string();
+    std::string outputFilename = program_name + ".jasm";
+
+    std::ofstream outStream(outputFilename);
+    if (!outStream.is_open()) {
+        std::cerr << "Error opening output file: " << outputFilename << '\n';
+        return EXIT_FAILURE;
+    }
+
+    // Parse the input file and generate the AST
+    auto AbstractSyntaxTree = parse();
+
+    // Parse the AST and do the semantic analysis
+    SymbolTable symtab;
+    SemanticAnalyzer semanticAnalyzer(symtab);
+    semanticAnalyzer.analyze(*AbstractSyntaxTree);
+
+    // Generate code from the AST
+    CodeEmitter emitter(outStream);
+    CodeGenContext ctx(program_name);
+    CodeGenVisitor codegen(emitter, ctx, symtab); 
+    codegen.generate(*AbstractSyntaxTree);
+
     cout << "Parsing completed successfully!" << endl;   
 
+    outStream.close();
     return 0;
 }

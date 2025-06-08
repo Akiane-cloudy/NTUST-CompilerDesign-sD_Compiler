@@ -1,5 +1,6 @@
 #include "SemanticAnalyzer.hpp"
 
+#include <iostream>
 #include <cstdlib>
 
 // full-path return analysis helpers
@@ -18,11 +19,6 @@ bool SemanticAnalyzer::allPathsReturn(const std::vector<std::unique_ptr<ast::Stm
         if (stmtReturns(st.get())) return true;
     }
     return false;
-}
-
-// Constructor: enter global scope
-SemanticAnalyzer::SemanticAnalyzer() {
-    symtab.enterScope();
 }
 
 // Entry point: analyze program and report errors
@@ -46,8 +42,6 @@ void SemanticAnalyzer::visit(ast::Program& p) {
         declPtr->accept(*this);
     for (auto& stmtPtr : p.stmts)
         stmtPtr->accept(*this);
-    symtab.hasErrors = errors.size() > 0;
-    symtab.exitScope();
 }
 
 // Visit variable declaration
@@ -79,7 +73,9 @@ void SemanticAnalyzer::visit(ast::VarDecl& d) {
         for (int dim : d.dims) total *= dim;
         entry.arrayValues = std::vector<ConstValue>(total);
     }
-    if (!symtab.insert(entry)) {
+    auto* ent = symtab.insert(entry);
+    d.sym = *ent;
+    if (!ent) {
         error(d.line, "Redefinition of variable '" + d.name + "'");
         entry.type = ast::Type(ast::BasicType::ERROR);  // Set to ERROR for error handling
     }
@@ -111,7 +107,9 @@ void SemanticAnalyzer::visit(ast::ConstDecl& d) {
         if (auto cv = evalConstExpr(d.init.get()))
             entry.value = *cv;
     }
-    if (!symtab.insert(entry)) {
+    auto* ent = symtab.insert(entry);
+    d.sym = *ent;
+    if (!ent) {
         error(d.line, "Redefinition of const '" + d.name + "'");
         entry.type = ast::Type(ast::BasicType::ERROR);  // Set to ERROR for error handling
     }
@@ -225,7 +223,7 @@ void SemanticAnalyzer::visit(ast::Assign& a) {
         ent->value.reset();
 
     // assignment expression result is the RHS type. for instance: a = b -> <Type_of_b>
-    a.ty = a.rhs->ty;
+    a.ty = ast::BasicType::Void;
 }
 
 // Visit if statement
@@ -235,10 +233,17 @@ void SemanticAnalyzer::visit(ast::IfStmt& s) {
         error(s.line, "Condition in if statement must be boolean");
     }
     
-    s.thenStmt->accept(*this);
     
+    symtab.enterScope();
+    if (dynamic_cast<ast::Block*>(s.thenStmt.get())) ++skipBlockScopeOnce;
+    s.thenStmt->accept(*this);
+    symtab.exitScope();
+
     if (s.elseStmt) {
+        symtab.enterScope();
+        if (dynamic_cast<ast::Block*>(s.elseStmt.get())) ++skipBlockScopeOnce;
         s.elseStmt->accept(*this);
+        symtab.exitScope();
     }
 }
 
@@ -273,7 +278,6 @@ void SemanticAnalyzer::visit(ast::ForStmt& s) {
     ++skipBlockScopeOnce;
     s.body->accept(*this);
 
-    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 }
 
@@ -341,6 +345,7 @@ void SemanticAnalyzer::visit(ast::Var& v) {
     // base type (might be array)
     ast::Type base = ent->type;
     v.ty = base;
+    v.sym = *ent;
 
     /*───────────── Array-specific checks ─────────────*/
     if (!v.indices.empty()) {
@@ -632,6 +637,7 @@ void SemanticAnalyzer::visit(ast::Call& c) {
     
     // Set call expression type to function's return type
     c.ty = ent->returnType.value_or(ast::Type(ast::BasicType::Void));
+    c.sym = *ent;
     
     // If return type is error, report
     if (c.ty.kind == ast::BasicType::ERROR) {
@@ -680,7 +686,6 @@ void SemanticAnalyzer::visit(ast::Block& b) {
         stmt->accept(*this);
     }
 
-    symtab.hasErrors = errors.size() > 0;
     if (!merged) symtab.exitScope();
 }
 
@@ -707,7 +712,9 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     }
     funcEntry.paramTypes = paramTypes;
     
-    if (!symtab.insert(funcEntry)) {
+    auto* ent = symtab.insert(funcEntry);
+    fd.sym = *ent;
+    if (!ent) {
         error(fd.line, "Redefinition of function '" + fd.name + "'");
         // Don't proceed with analyzing the body if redefinition error
         return; 
@@ -717,7 +724,7 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
     currentFunctionReturnType = fd.returnType;
 
     // Enter function scope
-    symtab.enterScope();
+    symtab.enterScope(true);
     
     // Process parameters (add them to the function's scope)
     for (auto& param : fd.params) {
@@ -742,8 +749,6 @@ void SemanticAnalyzer::visit(ast::FuncDecl& fd) {
         }
     }
 
-    // Exit function scope
-    symtab.hasErrors = errors.size() > 0;
     symtab.exitScope();
 
     // Restore outer context
