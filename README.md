@@ -1,12 +1,6 @@
 # Compiler Design
-## Project 2 -- Syntax Analysis ( Parser )
+## sD Compiler
 
-- Personal Info:
-  - Name: YAN RU, CHEN（陳彥儒）
-  - STUID: B11115004
-  - Class: 四資工三乙班
-  - Mail: B11115004@mail.ntust.edu.tw
-  
 - Development Environment:
   - OS: macOS Sequoia 15.3.1
   - IDE: Visual Studio code
@@ -58,25 +52,3 @@
     
 - How to Clean:
   - Use `make clean` to Clean the Generated Files
-
-
-
-## Implementation Details (NEW)
-### Assignment
-In global assignment, I implement the assigment expression will initial expression statement.
-```c
-  int global_i = 10;
-  int global_j = i + i; // Initial statement with expression
-  void main(){/* ... */}
-```
-
-### Simple statement with return in a function
-In a function, I implement the return statement in a single statement
-```c
-  int func(){
-    if (!true)
-      /* nothing */
-    else 
-      return 1; // Simple statement with return statement
-  }
-```
